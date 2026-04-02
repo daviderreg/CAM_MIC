@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- Resource Type Icon -->
+        <ImageView
+            android:id="@+id/ivResourceType"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@drawable/ic_microphone"
+            tools:ignore="ContentDescription" />
+
+        <!-- Resource Type Badge -->
+        <TextView
+            android:id="@+id/tvResourceType"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:textColor="@android:color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@id/ivResourceType"
+            app:layout_constraintTop_toTopOf="@id/ivResourceType"
+            tools:text="AUDIO"
+            tools:background="@color/audio_badge" />
+
+        <!-- Status (Active) -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_green_dark"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/ivResourceType"
+            tools:text="● Active"
+            tools:visibility="visible" />
+
+        <!-- Package Name -->
+        <TextView
+            android:id="@+id/tvPackageName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="@id/tvResourceType"
+            app:layout_constraintTop_toBottomOf="@id/tvResourceType"
+            tools:text="com.whatsapp" />
+
+        <!-- Start Time Label -->
+        <TextView
+            android:id="@+id/tvStartTimeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Start:"
+            android:textSize="11sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintStart_toStartOf="@id/tvPackageName"
+            app:layout_constraintTop_toBottomOf="@id/tvPackageName" />
+
+        <!-- Start Time -->
+        <TextView
+            android:id="@+id/tvStartTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textSize="11sp"
+            app:layout_constraintBaseline_toBaselineOf="@id/tvStartTimeLabel"
+            app:layout_constraintStart_toEndOf="@id/tvStartTimeLabel"
+            tools:text="10:30:00" />
+
+        <!-- End Time Label -->
+        <TextView
+            android:id="@+id/tvEndTimeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="End:"
+            android:textSize="11sp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintBaseline_toBaselineOf="@id/tvStartTimeLabel"
+            app:layout_constraintStart_toEndOf="@id/tvStartTime" />
+
+        <!-- End Time -->
+        <TextView
+            android:id="@+id/tvEndTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textSize="11sp"
+            app:layout_constraintBaseline_toBaselineOf="@id/tvEndTimeLabel"
+            app:layout_constraintStart_toEndOf="@id/tvEndTimeLabel"
+            tools:text="10:32:00" />
+
+        <!-- Camera ID -->
+        <TextView
+            android:id="@+id/tvCameraId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:textSize="11sp"
+            android:textStyle="italic"
+            android:visibility="gone"
+            app:layout_constraintBaseline_toBaselineOf="@id/tvEndTimeLabel"
+            app:layout_constraintStart_toEndOf="@id/tvEndTime"
+            tools:text="Camera 0"
+            tools:visibility="visible" />
+
+        <!-- Duration -->
+        <TextView
+            android:id="@+id/tvDuration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/design_default_color_primary"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvStartTimeLabel"
+            tools:text="2m 0s" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>
