@@ -1,5 +1,6 @@
 package com.example.cam_mic.service
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,6 +10,8 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
+import android.app.KeyguardManager
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.media.AudioRecordingConfiguration
@@ -74,6 +77,15 @@ class MonitoringService : Service() {
     // Usage stats manager for package deduction (camera)
     private var usageStatsManager: UsageStatsManager? = null
     
+    // Activity manager for running processes
+    private var activityManager: ActivityManager? = null
+    
+    // Power manager for screen state detection
+    private var powerManager: PowerManager? = null
+    
+    // Keyguard manager for lock state detection
+    private var keyguardManager: KeyguardManager? = null
+    
     // Handler for debouncing rapid camera events
     private val handler = Handler(Looper.getMainLooper())
     
@@ -100,6 +112,9 @@ class MonitoringService : Service() {
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         
         createNotificationChannel()
     }
@@ -279,48 +294,84 @@ class MonitoringService : Service() {
     }
 
     /**
-     * Deduce the package name using UsageStatsManager.
-     * 
-     * LIMITATIONS: This is an approximation. The CameraManager callback does not
-     * provide the actual package using the camera. We query for the most recently
-     * used app within the last few seconds. This may not be accurate in all cases:
-     * - System processes won't appear in UsageStats
-     * - Rapid app switching can cause wrong attribution
-     * - Background services using camera won't be detected
+     * Deduce the package name using a safe, multi-strategy approach:
+     *
+     * Strategy 1: UsageStatsManager for ACTIVITY_RESUMED events (most accurate)
+     * Strategy 2: ActivityManager.getRunningAppProcesses() for foreground processes
+     * Strategy 3: Device Context Awareness - check screen/lock state
+     *
+     * SECURITY NOTE: We do NOT use vague fallbacks like "last used app" because
+     * they can create false positives. For example, if Face Unlock activates the
+     * camera with screen off, we must NOT blame the last app used hours ago.
+     *
+     * @return Package name, "System (Locked/Screen Off)", or "Unknown Background Process"
      */
     private fun deducePackageNameFromUsageStats(): String {
         val endTime = System.currentTimeMillis()
         val startTime = endTime - 5000 // Look back 5 seconds
         
-        Log.d(TAG, "Querying usage stats from $startTime to $endTime")
-        
-        val usageEvents = usageStatsManager?.queryEvents(startTime, endTime)
-        val eventList = mutableListOf<UsageEvents.Event>()
-        
-        usageEvents?.let { events ->
-            while (events.hasNextEvent()) {
-                val event = UsageEvents.Event()
-                if (events.getNextEvent(event)) {
-                    eventList.add(event)
-                    Log.d(TAG, "Usage event: ${event.packageName} - eventType: ${event.eventType}")
+        // Strategy 1: Try UsageStatsManager for ACTIVITY_RESUMED events (most reliable)
+        val fromActivityResumed = try {
+            val usageEvents = usageStatsManager?.queryEvents(startTime, endTime)
+            val eventList = mutableListOf<UsageEvents.Event>()
+            
+            usageEvents?.let { events ->
+                while (events.hasNextEvent()) {
+                    val event = UsageEvents.Event()
+                    if (events.getNextEvent(event)) {
+                        eventList.add(event)
+                    }
                 }
             }
+            
+            eventList
+                .filter { it.packageName != packageName } // Exclude ourselves
+                .filter { it.eventType == UsageEvents.Event.ACTIVITY_RESUMED }
+                .maxByOrNull { it.timeStamp }?.packageName
+        } catch (e: Exception) {
+            Log.w(TAG, "Error querying usage events", e)
+            null
         }
         
-        Log.d(TAG, "Found ${eventList.size} usage events")
+        if (!fromActivityResumed.isNullOrEmpty()) {
+            Log.d(TAG, "Deduced package from ACTIVITY_RESUMED: $fromActivityResumed")
+            return fromActivityResumed
+        }
         
-        // Find the most recent foreground activity
-        val foregroundEvent = eventList
-            .filter { it.packageName != packageName } // Exclude ourselves
-            .filter { it.eventType == UsageEvents.Event.ACTIVITY_RESUMED }
-            .maxByOrNull { it.timeStamp }
+        // Strategy 2: Try ActivityManager for running foreground processes
+        val fromRunningProcesses = try {
+            @Suppress("DEPRECATION")
+            val runningProcesses = activityManager?.getRunningAppProcesses()
+            runningProcesses
+                ?.filter { it.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND }
+                ?.filter { it.processName != packageName } // Exclude ourselves
+                ?.maxByOrNull { it.pid }?.processName
+        } catch (e: Exception) {
+            Log.w(TAG, "Error getting running processes", e)
+            null
+        }
         
-        val result = foregroundEvent?.packageName
-            ?: eventList.maxByOrNull { it.timeStamp }?.packageName
-            ?: "unknown"
+        if (!fromRunningProcesses.isNullOrEmpty()) {
+            Log.d(TAG, "Deduced package from running processes: $fromRunningProcesses")
+            return fromRunningProcesses
+        }
         
-        Log.d(TAG, "Deduced package name: $result")
-        return result
+        // Strategy 3: Device Context Awareness - check screen and lock state
+        // This prevents false positives when camera/mic is used by system processes
+        // (e.g., Face Unlock, voice assistant) with screen off or device locked
+        val isScreenOff = !(powerManager?.isInteractive ?: true)
+        val isLocked = keyguardManager?.isKeyguardLocked ?: false
+        
+        return if (isScreenOff || isLocked) {
+            // Screen off or device locked = likely a system process
+            Log.d(TAG, "Device context: screenOff=$isScreenOff, locked=$isLocked -> System process")
+            "System (Locked/Screen Off)"
+        } else {
+            // Screen on and unlocked, but no matching app found
+            // Could be a background process or service
+            Log.d(TAG, "Device context: screen on, unlocked, but no matching app -> Unknown background process")
+            "Unknown Background Process"
+        }
     }
 
     /**
